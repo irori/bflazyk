@@ -16,8 +16,10 @@
 #define print_str(s) fputs(s, stdout)
 #endif
 
-#define HEAP_SIZE 8*1024
-#define RDSTACK_SIZE	4096
+#undef VERBOSE
+
+#define HEAP_SIZE 12*1024
+#define RDSTACK_SIZE	8192
 
 /**********************************************************************
  *  Storage management
@@ -73,7 +75,7 @@ typedef struct tagPair {
 #define SET(c,fst,snd)  ((c)->car = (fst), (c)->cdr = (snd))
 
 
-Pair *heap_area, *free_ptr;
+Pair *heap_area, *free_ptr, *free_area;
 
 void gc_run(Cell *save1, Cell *save2);
 void rs_copy(void);
@@ -84,10 +86,17 @@ Cell copy_cell(Cell c);
 void storage_init()
 {
     heap_area = calloc(sizeof(Pair) * HEAP_SIZE, 4);
-    if (heap_area == NULL)
-	ERROR("Cannot allocate heap storage");
+    free_area = calloc(sizeof(Pair) * HEAP_SIZE, 4);
     if (!ispair(heap_area))
         ERROR("heap_area must be larger than CHAR_MAX");
+#ifdef VERBOSE
+    print_str("Heap area 1: ");
+    print_int((int)heap_area);
+    putchar('\n');
+    print_str("Heap area 2: ");
+    print_int((int)free_area);
+    putchar('\n');
+#endif
     
     free_ptr = heap_area;
     heap_area += HEAP_SIZE;
@@ -120,17 +129,12 @@ Cell alloc(int n)
 
 void gc_run(Cell *save1, Cell *save2)
 {
-    static Pair* free_area = NULL;
     int num_alive;
     Pair *scan;
 
-    puts("GC");
-
-    if (free_area == NULL) {
-	free_area = calloc(sizeof(Pair) * HEAP_SIZE, 4);
-	if (free_area == NULL)
-	    ERROR("Cannot allocate heap storage\n");
-    }
+#ifdef VERBOSE
+    print_str("GC ");
+#endif
 
     free_ptr = scan = free_area;
     free_area = heap_area - HEAP_SIZE;
@@ -145,10 +149,16 @@ void gc_run(Cell *save1, Cell *save2)
     while (scan < free_ptr) {
 	car(scan) = copy_cell(car(scan));
 	cdr(scan) = copy_cell(cdr(scan));
-	scan++;
+	scan += 1;
     }
 
-    num_alive = free_ptr - (heap_area - HEAP_SIZE);
+    if (free_ptr + 100 > heap_area)
+        ERROR("Out of memory");
+
+#ifdef VERBOSE
+    print_int((int)heap_area - (int)free_ptr);
+    putchar('\n');
+#endif
 }
 
 Cell copy_cell(Cell c)
@@ -160,7 +170,7 @@ Cell copy_cell(Cell c)
     if (car(c) == COPIED)
 	return cdr(c);
 
-    r = free_ptr++;
+    r = free_ptr; free_ptr += 1;
     car(r) = car(c);
     if (car(c) == COMB_I) {
 	Cell tmp = cdr(c);
