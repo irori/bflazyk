@@ -9,9 +9,11 @@
 #ifdef __8cc__
 #include "libf.h"
 #define EOF -1
+typedef unsigned uintptr_t;
 #else
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #define print_int(n) printf("%d", n)
 #define print_str(s) fputs(s, stdout)
 #endif
@@ -40,7 +42,7 @@ typedef struct tagPair *Cell;
 #define COMB_WRITE	mkcomb(6)
 #define COMB_INC	mkcomb(7)
 #define COMB_CONS	mkcomb(8)
-#define COMB_MAX        ((unsigned)COMB_CONS)
+#define COMB_MAX        ((uintptr_t)COMB_CONS)
 
 /* immediate objects */
 #define IMM_MIN         (COMB_MAX + 1)
@@ -48,28 +50,28 @@ typedef struct tagPair *Cell;
 #define NIL		mkimm(0)
 #define COPIED		mkimm(1)
 #define UNUSED_MARKER	mkimm(2)
-#define IMM_MAX         ((unsigned)UNUSED_MARKER)
+#define IMM_MAX         ((uintptr_t)UNUSED_MARKER)
 
 /* integer */
-#define INT_MIN         (IMM_MAX + 1)
-#define INT_MAX         (INT_MIN + 256)
-#define isint(c)	((unsigned)(c) >= INT_MIN && (unsigned)(c) <= INT_MAX)
-#define mkint(n)	CELL(INT_MIN + (n))
-#define intof(c)	((unsigned)(c) - INT_MIN)
+#define INTEGER_MIN     (IMM_MAX + 1)
+#define INTEGER_MAX     (INTEGER_MIN + 256)
+#define isint(c)	((uintptr_t)(c) >= INTEGER_MIN && (uintptr_t)(c) <= INTEGER_MAX)
+#define mkint(n)	CELL(INTEGER_MIN + (n))
+#define intof(c)	((int)((uintptr_t)(c) - INTEGER_MIN))
 
 /* character */
-#define CHAR_MIN         (INT_MAX + 1)
+#define CHAR_MIN         (INTEGER_MAX + 1)
 #define CHAR_MAX         (CHAR_MIN + 255)
-#define ischar(c)	((unsigned)(c) >= CHAR_MIN && (unsigned)(c) <= CHAR_MAX)
+#define ischar(c)	((uintptr_t)(c) >= CHAR_MIN && (uintptr_t)(c) <= CHAR_MAX)
 #define mkchar(n)	CELL(CHAR_MIN + (n))
-#define charof(c)	((unsigned)(c) - CHAR_MIN)
+#define charof(c)	((uintptr_t)(c) - CHAR_MIN)
 
 /* pair */
 typedef struct tagPair {
     Cell car;
     Cell cdr;
 } Pair;
-#define ispair(c)	((unsigned)(c) > CHAR_MAX)
+#define ispair(c)	((uintptr_t)(c) > CHAR_MAX)
 #define car(c)		((c)->car)
 #define cdr(c)		((c)->cdr)
 #define SET(c,fst,snd)  ((c)->car = (fst), (c)->cdr = (snd))
@@ -85,8 +87,8 @@ Cell copy_cell(Cell c);
 
 void storage_init()
 {
-    heap_area = calloc(sizeof(Pair) * HEAP_SIZE, 4);
-    free_area = calloc(sizeof(Pair) * HEAP_SIZE, 4);
+    heap_area = calloc(2 * HEAP_SIZE, sizeof(Cell));
+    free_area = calloc(2 * HEAP_SIZE, sizeof(Cell));
     if (!ispair(heap_area))
         ERROR("heap_area must be larger than CHAR_MAX");
 #ifdef VERBOSE
@@ -349,7 +351,7 @@ void print(Cell e)
         putchar(charof(e));
         putchar('\'');
     } else {
-        switch ((unsigned)e) {
+        switch ((uintptr_t)e) {
         case 0: putchar('S'); break;
         case 1: putchar('K'); break;
         case 2: putchar('I'); break;
