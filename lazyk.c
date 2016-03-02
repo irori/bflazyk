@@ -223,7 +223,7 @@ void rs_push(Cell c)
 
 #define TOP		(*rd_stack.sp)
 #define POP		(*rd_stack.sp++)
-#define PUSH(c)		rs_push(c)
+#define PUSH(c)		(*--rd_stack.sp = c)
 #define PUSHED(n)	(*(rd_stack.sp+(n)))
 #define DROP(n)		(rd_stack.sp += (n))
 #define ARG(n)		cdr(PUSHED(n))
@@ -283,7 +283,7 @@ Cell read_many(int closing_char)
 	return COMB_I;
     ungetChar(c);
 
-    PUSH(read_one(0));
+    rs_push(read_one(0));
     while ((c = next_char()) != closing_char) {
 	ungetChar(c);
 	obj = read_one(0);
@@ -301,7 +301,7 @@ Cell read_one(int i_is_iota)
     c = next_char();
     switch (c) {
     case '`': case '*':
-	PUSH(read_one(c == '*'));
+	rs_push(read_one(c == '*'));
 	obj = read_one(c == '*');
 	obj = pair(TOP, obj);
 	POP;
@@ -376,11 +376,15 @@ void print(Cell e)
 void eval(Cell root)
 {
     Cell *bottom = rd_stack.sp;
-    PUSH(root);
+    rs_push(root);
 
     for (;;) {
-	while (ispair(TOP))
-	    PUSH(car(TOP));
+	while (ispair(TOP)) {
+            Cell top = car(TOP);
+            PUSH(top);
+        }
+        if (rd_stack.sp < rd_stack.stack)
+            ERROR("runtime error: stack overflow\n");
 
 	if (TOP == COMB_I && APPLICABLE(1))
 	{ /* I x -> x */
