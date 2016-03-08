@@ -18,8 +18,6 @@ typedef unsigned uintptr_t;
 #define print_str(s) fputs(s, stdout)
 #endif
 
-#undef VERBOSE
-
 #define HEAP_SIZE 12*1024
 #define RDSTACK_SIZE	8192
 
@@ -61,7 +59,7 @@ typedef struct tagPair *Cell;
 
 /* character */
 #define CHAR_MIN         (INTEGER_MAX + 1)
-#define CHAR_MAX         (CHAR_MIN + 255)
+#define CHAR_MAX         (CHAR_MIN + 256)
 #define ischar(c)	((uintptr_t)(c) >= CHAR_MIN && (uintptr_t)(c) <= CHAR_MAX)
 #define mkchar(n)	CELL(CHAR_MIN + (n))
 #define charof(c)	((uintptr_t)(c) - CHAR_MIN)
@@ -85,10 +83,10 @@ Cell copy_cell(Cell c);
 
 #define ERROR(s) (puts(s), exit(1))
 
-void storage_init()
+void storage_init(void *area1, void *area2)
 {
-    heap_area = calloc(2 * HEAP_SIZE, sizeof(Cell));
-    free_area = calloc(2 * HEAP_SIZE, sizeof(Cell));
+    heap_area = area1;
+    free_area = area2;
     if (!ispair(heap_area))
         ERROR("heap_area must be larger than CHAR_MAX");
 #ifdef VERBOSE
@@ -233,6 +231,20 @@ void rs_push(Cell c)
  *  Loader
  **********************************************************************/
 
+#ifdef LAZYK_CODE
+
+char *code_ptr;
+
+int getChar(void) {
+    return *code_ptr ? *code_ptr++ : EOF;
+}
+
+void ungetChar(int c) {
+    *--code_ptr = c;
+}
+
+#else
+
 int g_buf = -1;
 
 int getChar(void) {
@@ -242,8 +254,6 @@ int getChar(void) {
         g_buf = -1;
     } else {
         r = getchar();
-        //if (r == -1)
-        //    exit(0);
     }
     return r;
 }
@@ -251,6 +261,8 @@ int getChar(void) {
 void ungetChar(int c) {
     g_buf = c;
 }
+
+#endif
 
 Cell read_one(int i_is_iota);
 Cell read_many(int closing_char);
@@ -502,13 +514,23 @@ void eval_print(Cell root)
  *  Main
  **********************************************************************/
 
+char heap_area1[HEAP_SIZE * sizeof(Pair)];
+#ifdef LAZYK_CODE
+char heap_area2[HEAP_SIZE * sizeof(Pair)] = LAZYK_CODE;
+#else
+char heap_area2[HEAP_SIZE * sizeof(Pair)];
+#endif
+
 int main()
 {
     Cell root;
     
-    storage_init();
+    storage_init(heap_area1, heap_area2);
     rs_init();
 
+#ifdef LAZYK_CODE
+    code_ptr = heap_area2;
+#endif
     root = load_program();
 
     //print(root);

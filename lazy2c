@@ -1,0 +1,7 @@
+#!/bin/sh
+# usage: lazy2c < hello.lazy > hello.c
+
+echo -n '#define LAZYK_CODE "'
+sed 's/#.*//' $* |tr -d '\n'
+echo '"'
+cat lazyk.c
